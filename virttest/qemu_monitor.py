@@ -283,6 +283,7 @@ class Monitor(object):
         self.open_log_files = {}
         self._supported_migrate_capabilities = None
         self._supported_migrate_parameters = None
+        self.poller = select.poll()
 
         try:
             backend = monitor_params.get('chardev_backend', 'unix_socket')
@@ -306,6 +307,7 @@ class Monitor(object):
             raise MonitorConnectError("Could not connect to monitor socket: %s"
                                       % details)
         self._server_closed = False
+        self.poller.register(self._socket, select.POLLIN)
 
     def __del__(self):
         # Automatically close the connection when the instance is garbage
@@ -381,7 +383,7 @@ class Monitor(object):
             return False
         timeout = max(0, timeout)
         try:
-            return bool(select.select([self._socket], [], [], timeout)[0])
+            return bool(self.poller.poll(timeout * 100))
         except socket.error as e:
             raise MonitorSocketError("Verifying data on monitor socket", e)
 
